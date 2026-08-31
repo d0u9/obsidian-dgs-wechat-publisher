@@ -62,6 +62,25 @@ test('CRLF notes keep their line endings', () => {
   assert.equal(upsertFrontmatter(crlf, { author: 'a' }), '---\r\ntitle: T\nauthor: a\r\n---\r\n\r\n正文。\r\n');
 });
 
+test('a byte-order mark does not hide the frontmatter', () => {
+  const result = upsertFrontmatter('\ufeff---\ntitle: T\n---\n\n正文。\n', { author: 'tester' });
+  assert.equal(result, '\ufeff---\ntitle: T\nauthor: tester\n---\n\n正文。\n');
+});
+
+// A title is text even when it reads like something else. YAML would otherwise turn `no` into
+// false, `2024-01-01` into a date and `007` into a number.
+test('values YAML would reinterpret stay strings', () => {
+  const values = { title: 'no', description: '2024-01-01', author: '007', cover: 'true' };
+  const { frontmatter } = parseFrontmatter(upsertFrontmatter(NOTE, values));
+  for (const [key, value] of Object.entries(values)) assert.strictEqual(frontmatter[key], value, key);
+});
+
+// The merge is checked against the parser that decides what gets published; anything that would
+// not read back as intended is refused rather than written to the note.
+test('a merge that would not read back is refused', () => {
+  assert.throws(() => upsertFrontmatter(NOTE, { 'a: b': 'x' }));
+});
+
 test('the body is never touched, even when it contains a --- rule', () => {
   const withRule = `${NOTE}\n---\n\n后记。\n`;
   const result = upsertFrontmatter(withRule, { author: 'tester' });

@@ -2,7 +2,7 @@ import { MarkdownView, Notice, Plugin, requestUrl, TFile, TFolder } from 'obsidi
 import { extractImageSources, isRemoteSource, joinVaultPath, prepareArticle, PreparedArticle, replaceImageSource, resolveVaultImage } from './article';
 import { PreparedImage, prepareBodyImage, prepareCover } from './image';
 import { chooseCover, chooseTranslation, confirmDraft, CoverCandidate, DraftDecision, IMAGE_EXTENSIONS, PreviewModal } from './ui';
-import { BUNDLE_INDEX, conventionalCoverPaths, ResolvedBundle, resolveBundle } from './bundle';
+import { conventionalCoverPaths, ResolvedBundle, resolveBundle } from './bundle';
 import { upsertFrontmatter } from './frontmatter';
 import { createDraft, deleteMaterial, forgetAccessToken, getAccessToken, uploadBodyImage, uploadCover } from './wechat-api';
 import { Credentials, loadCredentials } from './credentials';
@@ -268,33 +268,22 @@ export default class WechatPublisherPlugin extends Plugin implements SettingsHos
   }
 
   /**
-   * Write what the dialog asked for back into the note, so the next publish needs no dialog. In a
-   * bundle the cover is shared by every translation, so it belongs in index.md — exactly where the
-   * layout puts it — while the title and digest stay with the translation that was published.
+   * Write what the dialog asked for back into the note that was published — in a bundle, the
+   * translation itself, cover included. The cover is shared in principle, but a translation that
+   * names its own is the one being looked at, and editing a file the author did not open is worse
+   * than repeating a line.
    */
   private async rememberDialogAnswers(bundle: ResolvedBundle, article: PreparedArticle, decision: DraftDecision, chosenCover: TFile | null): Promise<void> {
     if (!this.settings.rememberChoices) return;
 
-    const perArticle: Record<string, string> = {};
-    if (!article.title && decision.title) perArticle.title = decision.title;
-    if (!article.digest && decision.digest) perArticle.description = decision.digest;
-    if (!article.author && decision.author) perArticle.author = decision.author;
-
-    const shared: Record<string, string> = {};
-    if (chosenCover) shared.cover = chosenCover.path;
-
-    const index = bundle.isBundle
-      ? bundle.file.parent?.children.find((entry): entry is TFile => entry instanceof TFile && entry.name === BUNDLE_INDEX) ?? null
-      : null;
-    await this.writeFrontMatter(bundle.file, index ? perArticle : { ...perArticle, ...shared });
-    if (index) await this.writeFrontMatter(index, shared);
+    const additions: Record<string, string> = {};
+    if (chosenCover) additions.cover = chosenCover.path;
+    if (!article.title && decision.title) additions.title = decision.title;
+    if (!article.digest && decision.digest) additions.description = decision.digest;
+    if (!article.author && decision.author) additions.author = decision.author;
+    await this.writeFrontMatter(bundle.file, additions);
   }
 
-  /**
-   * `fileManager.processFrontMatter` finds the existing block through the metadata cache, and
-   * prepends a second one when that cache is stale — which corrupts the note. `vault.process` is a
-   * read-modify-write on the file's own text, so the merge sees exactly what is on disk.
-   */
   private async writeFrontMatter(file: TFile, additions: Record<string, string>): Promise<void> {
     if (!Object.keys(additions).length) return;
     try {

@@ -53,7 +53,7 @@
 - 在 `index.md` 上执行命令，插件会问你要发布哪个译本（只有一个译本时直接用它）。
 - 文件名 `zh.md` / `en.md` 决定排版预设，**优先于** frontmatter 里的 `lang`。其它名字（如 `notes.md`）不视为语言，仍看 `lang`。
 - 没有任何地方声明 `cover` 时，插件会自动使用 `images/cover.{jpg,jpeg,png,webp,avif}`，找不到才弹出选择框；选择框里 bundle 的 `images/` 会排在前面。
-- 写回 frontmatter 时，`cover` 写进 `index.md`（它对所有译本是同一张），`title` / `description` / `author` 写进当前发布的那个译本。
+- 写回 frontmatter 时，**一律写进你刚发布的那个译本**（`zh.md` 或 `en.md`），包括 `cover`。插件不会去改 `index.md`。
 
 单文件笔记的行为完全不变：同目录没有 `index.md` 就不构成 bundle。
 

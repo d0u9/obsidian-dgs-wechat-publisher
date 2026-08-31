@@ -7,6 +7,10 @@ declare module 'dgs-wechat-publisher/markdown' {
     frontmatter: Record<string, unknown>;
     html: string;
   }>;
+  export function parseFrontmatter(source: string): {
+    frontmatter: Record<string, unknown>;
+    content: string;
+  };
   export function assertSelfContained(html: string): void;
 }
 
