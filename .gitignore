@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Generated build output (attach release artifacts to GitHub Releases)
+main.js
+*.map
+dist/
+
+# Test and tooling output
+coverage/
+*.log
+.eslintcache
+*.tsbuildinfo
+
+# Local Obsidian plugin settings
+data.json
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
