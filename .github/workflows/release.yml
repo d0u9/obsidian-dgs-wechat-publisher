@@ -44,12 +44,23 @@ jobs:
 
       - run: npm run build
 
+      # A tag can be moved and pushed again while a version is still being prepared, so the draft
+      # is refreshed rather than created a second time. A release that is already published is left
+      # alone: replacing what people have downloaded is not this workflow's call.
       - name: Draft the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "$GITHUB_REF_NAME"
-          --draft
-          --title "$GITHUB_REF_NAME"
-          --generate-notes
-          main.js manifest.json styles.css
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            if [ "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)" != "true" ]; then
+              echo "Release $GITHUB_REF_NAME is already published; not touching it." >&2
+              exit 1
+            fi
+            gh release upload "$GITHUB_REF_NAME" main.js manifest.json styles.css --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --draft \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              main.js manifest.json styles.css
+          fi
