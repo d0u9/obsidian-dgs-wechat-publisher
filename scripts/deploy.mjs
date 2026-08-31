@@ -6,7 +6,10 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const PLUGIN_ID = 'obsidian-dgs-wechat-publisher';
+// The folder these vaults already install into. It predates the manifest id, which had to drop its
+// `obsidian-` prefix to satisfy the community guidelines; Obsidian loads by folder, so the two are
+// allowed to differ and renaming a live install would only move settings around for no gain.
+const INSTALL_FOLDER = 'obsidian-dgs-wechat-publisher';
 const ARTIFACTS = ['main.js', 'manifest.json', 'styles.css'];
 
 const VAULTS = [
@@ -24,7 +27,7 @@ for (const artifact of ARTIFACTS) {
 }
 
 for (const vault of VAULTS) {
-  const target = join(vault.path, '.obsidian/plugins', PLUGIN_ID);
+  const target = join(vault.path, '.obsidian/plugins', INSTALL_FOLDER);
   if (target === root) {
     console.log(`${vault.name}: 就地构建，无需复制（${target}）`);
     continue;

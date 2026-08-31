@@ -41,6 +41,8 @@ git tag -a 0.2.0 -m 0.2.0 && git push origin main 0.2.0
 
 推标签会触发 [.github/workflows/release.yml](.github/workflows/release.yml)：它校验标签与 `manifest.json`、`versions.json` 一致，跑测试、构建，然后创建一个**草稿** release，附上 `main.js`、`manifest.json`、`styles.css`。草稿要人工确认后才发布——不要在工作流里改成自动发布。
 
+插件 id 是 `dgs-wechat-publisher`（社区规范不允许 id 带 `obsidian-` 前缀），但这两个 Vault 里的安装文件夹仍叫 `obsidian-dgs-wechat-publisher`。Obsidian 按文件夹加载，两者可以不同——不要"顺手"去改文件夹名，那只会把 `data.json` 挪来挪去。
+
 ## 凭证
 
 密钥不放在这个仓库、也不放在 Vault 里。设置里的 **Credentials file** 指向 Vault 之外的一个 `.env`，键名 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` / `WECHAT_AUTHOR`。这是唯一的凭证入口——设置里没有直接填 AppSecret 的字段，不要再加回来。
