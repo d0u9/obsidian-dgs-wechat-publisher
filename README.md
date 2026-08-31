@@ -91,10 +91,14 @@ messages, rewrite menus and enumerate followers, far beyond what this plugin nee
 file you control, and whitelisting your IP in the WeChat console, are the two things that actually
 contain the damage if it leaks.
 
-For the same reason the plugin uses Node's `fs` to read that one file — the vault API cannot reach
-outside the vault — and lists the vault's images to offer you covers. Neither is used for anything
-else. Every Node call the plugin makes lives in [src/node.ts](src/node.ts): four functions, one of
-which reads a file. Nothing writes outside the vault.
+Reading that file is the only thing the plugin does outside your vault, and it does it through
+Obsidian's own `FileSystemAdapter.readLocalFile` — the plugin imports no Node filesystem module,
+and the build fails if one ever reappears in the bundle. Everything else lives in
+[src/local-file.ts](src/local-file.ts): expanding a `~`, recognising an absolute path, and reading
+that one file. Nothing is written outside the vault, ever.
+
+Covers are offered from the folders the article already points at — the bundle's `images/`, the
+note's own pictures, its folder — rather than from a listing of every file in your vault.
 
 ## Development
 

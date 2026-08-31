@@ -1,4 +1,4 @@
-import { homeDirectory, isAbsolutePath, isFileNotFound, readTextFile, resolvePath } from './node';
+import { expandHome, isAbsolutePath, isFileNotFound, readLocalTextFile } from './local-file';
 
 export interface Credentials {
   appId: string;
@@ -10,13 +10,6 @@ export interface Credentials {
 const APP_ID_KEY = 'WECHAT_APP_ID';
 const APP_SECRET_KEY = 'WECHAT_APP_SECRET';
 const AUTHOR_KEY = 'WECHAT_AUTHOR';
-
-function expandHome(path: string): string {
-  const trimmed = path.trim();
-  if (trimmed === '~') return homeDirectory();
-  if (trimmed.startsWith('~/')) return resolvePath(homeDirectory(), trimmed.slice(2));
-  return trimmed;
-}
 
 /**
  * Read the subset of dotenv syntax that credential files actually use: `KEY=value`, an optional
@@ -46,7 +39,7 @@ export async function loadCredentials(path: string): Promise<Credentials> {
 
   let text: string;
   try {
-    text = await readTextFile(absolute);
+    text = await readLocalTextFile(absolute);
   } catch (error) {
     const reason = isFileNotFound(error) ? '文件不存在' : String(error);
     throw new Error(`读取凭证文件失败（${absolute}）：${reason}`);

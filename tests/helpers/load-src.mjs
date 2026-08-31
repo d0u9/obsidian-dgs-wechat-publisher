@@ -12,6 +12,14 @@ const obsidianStub = {
       contents: `
         export class TFile {}
         export class TFolder {}
+        // The app reads files outside the vault through this; node:fs stands in for it here.
+        export class FileSystemAdapter {
+          static async readLocalFile(path) {
+            const { readFile } = await import('node:fs/promises');
+            const buffer = await readFile(path);
+            return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+          }
+        }
         export const normalizePath = (value) => value.replace(/\\\\/g, '/').replace(/\\/+/g, '/');
         // Enough of the modal surface to exercise the promise-settling logic. Instances register
         // themselves on open, so a test can drive the callbacks Obsidian would call.
@@ -26,6 +34,10 @@ const obsidianStub = {
         }
         export class Modal extends BaseModal {}
         export class FuzzySuggestModal extends BaseModal {}
+        // Tests build fake vaults, and an instanceof check has to agree with the code under
+        // test, so the classes are published rather than re-declared on the test side.
+        // (No backticks in this string: the whole stub is a template literal.)
+        globalThis.__obsidian = { TFile, TFolder, FileSystemAdapter };
         export class Setting {
           setName() { return this; } setDesc() { return this; } setHeading() { return this; }
           addText() { return this; } addButton() { return this; } addToggle() { return this; }

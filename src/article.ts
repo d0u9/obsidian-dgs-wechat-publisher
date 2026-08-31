@@ -152,15 +152,7 @@ export function resolveVaultImage(vault: Vault, metadataCache: MetadataCache, no
     if (file instanceof TFile) return file;
   }
 
-  // Last resort: match on name alone. Several files can share a name, and silently picking one of
-  // them would publish the wrong picture, so an ambiguous match is an error the author must fix.
-  const needle = decoded.toLocaleLowerCase();
-  const named = vault.getFiles().filter((candidate) =>
-    candidate.name.toLocaleLowerCase() === needle || candidate.basename.toLocaleLowerCase() === needle,
-  );
-  if (named.length === 1) return named[0]!;
-  if (named.length > 1) {
-    throw new Error(`“${decoded}”在 Vault 中有多个同名文件（${named.map((f) => f.path).join('、')}）。请在链接里写明完整路径。`);
-  }
+  // `getFirstLinkpathDest` above already resolves a bare filename the way Obsidian's own links do,
+  // so there is nothing a scan of every file in the vault would find that it did not.
   throw new Error(`找不到图片“${decoded}”（来自 ${note.path}）。请检查链接或用 ![[图片文件名]] 重新插入。`);
 }

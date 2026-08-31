@@ -74,22 +74,25 @@ export default class WechatPublisherPlugin extends Plugin implements SettingsHos
     for (const source of article.imageSources) {
       if (!isRemoteSource(source)) add(resolve(source), '正文图片');
     }
-    // A bundle keeps its pictures in images/, one level below the translation being published.
-    const bundleImages = this.app.vault.getAbstractFileByPath(joinVaultPath(bundle.baseDir, 'images'));
-    if (bundleImages instanceof TFolder) {
-      for (const child of bundleImages.children) {
-        if (child instanceof TFile) add(child, 'bundle 图片');
-      }
+    // A bundle keeps its pictures in images/, beside the translation being published.
+    for (const child of this.folderOf(joinVaultPath(bundle.baseDir, 'images'))?.children ?? []) {
+      if (child instanceof TFile) add(child, 'bundle 图片');
     }
-    const folder = note.parent?.path;
-    const images = this.app.vault.getFiles()
-      .filter((file) => IMAGE_EXTENSIONS.has(file.extension.toLocaleLowerCase()))
-      .sort((a, b) => b.stat.mtime - a.stat.mtime);
-    for (const file of images) {
-      if (folder !== undefined && file.parent?.path === folder) add(file, '同一文件夹');
+    // Folders the article itself points at, rather than every image in the vault: a cover is
+    // almost always one of these, and reading the whole file list to find it is more access than
+    // the job needs.
+    for (const child of note.parent?.children ?? []) {
+      if (child instanceof TFile) add(child, '同一文件夹');
     }
-    for (const file of images) add(file, '最近修改');
+    for (const child of this.folderOf(joinVaultPath(bundle.baseDir, 'attachments'))?.children ?? []) {
+      if (child instanceof TFile) add(child, '附件文件夹');
+    }
     return candidates;
+  }
+
+  private folderOf(path: string): TFolder | null {
+    const folder = this.app.vault.getAbstractFileByPath(path);
+    return folder instanceof TFolder ? folder : null;
   }
 
   /** A URL the renderer can show for a cover, or '' when it cannot be resolved. */

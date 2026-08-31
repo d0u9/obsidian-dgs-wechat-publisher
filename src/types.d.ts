@@ -20,19 +20,6 @@ declare module 'dgs-wechat-publisher/converter' {
   };
 }
 
-// The three Node builtins src/node.ts needs, declared here rather than pulled in with @types/node.
-// The plugin runs in Electron and uses almost none of Node's surface; declaring just this much
-// keeps the code typed wherever it is compiled or linted, including a checkout without dev
-// dependencies, and documents exactly how far into Node the plugin reaches.
-declare module 'node:fs/promises' {
-  export function readFile(path: string, encoding: 'utf8'): Promise<string>;
-}
-
-declare module 'node:os' {
-  export function homedir(): string;
-}
-
-declare module 'node:path' {
-  export function isAbsolute(path: string): boolean;
-  export function resolve(...segments: string[]): string;
-}
+// Electron exposes Node's `process`, and the plugin uses exactly one thing from it: the home
+// directory, to expand a `~` in the credentials path. Declared here so no Node types are needed.
+declare const process: { env: Record<string, string | undefined> };
