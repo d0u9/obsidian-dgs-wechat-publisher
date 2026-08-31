@@ -5,16 +5,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadSrc } from './helpers/load-src.mjs';
 
-const { expandHome, isAbsolutePath, isFileNotFound, readLocalTextFile } = await loadSrc('local-file.ts');
+const { isAbsolutePath, isFileNotFound, readLocalTextFile, usesHomeShorthand } = await loadSrc('local-file.ts');
 
-test('~ is expanded, and nothing else is touched', () => {
-  const home = process.env.HOME;
-  assert.equal(expandHome('~'), home);
-  assert.equal(expandHome('~/Git/x/.env'), `${home}/Git/x/.env`);
-  assert.equal(expandHome('  ~/x  '), `${home}/x`);
-  assert.equal(expandHome('/etc/hosts'), '/etc/hosts');
-  // A leading ~ that is not a home reference stays as typed.
-  assert.equal(expandHome('~user/x'), '~user/x');
+// Expanding a ~ means reading the home directory out of the environment, which reads as machine
+// fingerprinting. The path is asked for in full instead, and a ~ is reported rather than guessed at.
+test('a ~ path is recognised so it can be reported, never expanded', () => {
+  assert.equal(usesHomeShorthand('~/Git/x/.env'), true);
+  assert.equal(usesHomeShorthand('  ~  '), true);
+  assert.equal(usesHomeShorthand('/Users/doug/x/.env'), false);
+  assert.equal(usesHomeShorthand('relative/.env'), false);
 });
 
 test('absolute paths are recognised on every desktop platform', () => {

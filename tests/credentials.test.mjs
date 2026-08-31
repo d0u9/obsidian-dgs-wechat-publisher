@@ -44,6 +44,7 @@ test('an incomplete or missing file explains itself', async () => {
   await assert.rejects(loadCredentials(partial), /WECHAT_APP_SECRET/);
   await assert.rejects(loadCredentials(join(tmpdir(), 'dgs-nope', '.env')), /文件不存在/);
   await assert.rejects(loadCredentials('relative/.env'), /绝对路径/);
+  await assert.rejects(loadCredentials('~/Git/x/.env'), /不支持 ~/);
 });
 
 test('maskAppId never shows the whole value', () => {

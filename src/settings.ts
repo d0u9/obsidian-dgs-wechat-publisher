@@ -46,10 +46,10 @@ export class PublisherSettingTab extends PluginSettingTab {
     new Setting(this.containerEl).setName('Credentials').setHeading();
     this.field(
       'Credentials file',
-      'Absolute path to a .env file outside this vault, holding WECHAT_APP_ID, WECHAT_APP_SECRET and optionally WECHAT_AUTHOR. '
-        + 'The file is read on each publish, so no secret is ever stored in this vault.',
+      'Full path to a .env file outside this vault, holding WECHAT_APP_ID, WECHAT_APP_SECRET and optionally WECHAT_AUTHOR. '
+        + 'Write the path out in full — `~` is not expanded. The file is read on each publish, so no secret is ever stored in this vault.',
       (value) => { this.plugin.config.credentialsPath = value.trim(); },
-      (text) => { text.setPlaceholder('~/.config/wechat-publisher/.env').setValue(this.plugin.config.credentialsPath); },
+      (text) => { text.setPlaceholder('/Users/you/.config/wechat-publisher/.env').setValue(this.plugin.config.credentialsPath); },
     ).addButton((button) => button.setButtonText('Check').onClick(async () => {
       this.save.run();
       try {

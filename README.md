@@ -22,8 +22,8 @@ writing these articles are.
    ```
 
    In **Settings → Community plugins → DGS WeChat Publisher**, set **Credentials file** to that
-   file's absolute path (`~` is expanded), then press **Check**. This is the only way to give the
-   plugin credentials: nothing secret is written into your vault.
+   file's full path — written out in full, since `~` is not expanded — then press **Check**. This is
+   the only way to give the plugin credentials: nothing secret is written into your vault.
 
 2. In the WeChat admin console, whitelist this machine's public IP address and confirm the account
    has permission to use the material and draft APIs.
@@ -94,8 +94,9 @@ contain the damage if it leaks.
 Reading that file is the only thing the plugin does outside your vault, and it does it through
 Obsidian's own `FileSystemAdapter.readLocalFile` — the plugin imports no Node filesystem module,
 and the build fails if one ever reappears in the bundle. Everything else lives in
-[src/local-file.ts](src/local-file.ts): expanding a `~`, recognising an absolute path, and reading
-that one file. Nothing is written outside the vault, ever.
+[src/local-file.ts](src/local-file.ts): recognising an absolute path and reading that one file.
+Nothing is written outside the vault, ever, and the plugin never reads your environment — which is
+why the path has to be written out in full rather than starting with `~`.
 
 Covers are offered from the folders the article already points at — the bundle's `images/`, the
 note's own pictures, its folder — rather than from a listing of every file in your vault.

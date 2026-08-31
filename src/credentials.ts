@@ -1,4 +1,4 @@
-import { expandHome, isAbsolutePath, isFileNotFound, readLocalTextFile } from './local-file';
+import { isAbsolutePath, isFileNotFound, readLocalTextFile, usesHomeShorthand } from './local-file';
 
 export interface Credentials {
   appId: string;
@@ -34,7 +34,10 @@ export function parseEnv(text: string): Record<string, string> {
 }
 
 export async function loadCredentials(path: string): Promise<Credentials> {
-  const absolute = expandHome(path);
+  const absolute = path.trim();
+  if (usesHomeShorthand(absolute)) {
+    throw new Error(`凭证文件路径请写完整路径，不支持 ~ 开头（当前填的是 ${path}）。`);
+  }
   if (!isAbsolutePath(absolute)) throw new Error(`凭证文件路径必须是绝对路径：${path}`);
 
   let text: string;

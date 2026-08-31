@@ -46,7 +46,7 @@ if (production) {
 
   // The plugin's only filesystem access is Obsidian's own readLocalFile; keep it that way.
   const bundle = readFileSync('main.js', 'utf8');
-  const forbidden = [/require\("node:fs(\/promises)?"\)/, /\bBuffer\.from\b/];
+  const forbidden = [/require\("node:fs(\/promises)?"\)/, /\bBuffer\.from\b/, /\bprocess\.env\b/];
   for (const pattern of forbidden) {
     if (pattern.test(bundle)) {
       console.error(`Build contains ${pattern}, which this plugin is not supposed to use.`);

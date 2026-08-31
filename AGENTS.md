@@ -55,6 +55,7 @@ git tag -a 0.2.0 -m 0.2.0 && git push origin main 0.2.0
 
 - `npm run lint` 跑的是插件目录评审用的同一套规则（`eslint-plugin-obsidianmd` + typescript-eslint）。提交社区之前必须过——它的 error 会直接卡住发布。
 - **不要引入 `node:fs`**。Vault 之外的那一个文件用 Obsidian 的 `FileSystemAdapter.readLocalFile` 读，production 构建会检查产物里是否出现 `require("node:fs")` 和 `Buffer.from`，出现就直接失败。所有本地文件相关的代码只放在 `src/local-file.ts`。
+- 不要读 `process.env`（会被判定为读取用户身份信息用于指纹识别）。凭证路径因此必须写全，不支持 `~`；production 构建会检查产物里有没有 `process.env`。
 - 仓库**不依赖 `@types/node`**——评审环境没有它，装了只会让本地 lint 看不到他们看到的问题。
 - 不要用 `vault.getFiles()` 等全量枚举：封面候选只从文章已经指向的文件夹里取。
 - 插件自己的设置存在 `plugin.config`，**不要叫 `settings`**：Obsidian 1.13 给 `Plugin` 加了同名属性，会互相遮蔽，评审也会报 `no-unsupported-api`。
