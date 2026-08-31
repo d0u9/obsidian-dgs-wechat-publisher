@@ -1,6 +1,6 @@
 {
   "name": "obsidian-dgs-wechat-publisher",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "description": "Create WeChat Official Account drafts from Obsidian notes.",
   "main": "main.js",
   "scripts": {
