@@ -1,6 +1,6 @@
 {
   "name": "obsidian-dgs-wechat-publisher",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Create WeChat Official Account drafts from Obsidian notes.",
   "main": "main.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "release": "npm run build && npm run deploy"
   },
   "dependencies": {
-    "dgs-wechat-publisher": "github:d0u9/dgs-wechat-publisher#cdbddd2"
+    "dgs-wechat-publisher": "github:d0u9/dgs-wechat-publisher#f211288"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
