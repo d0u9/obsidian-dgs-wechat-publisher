@@ -69,9 +69,11 @@ jobs:
             fi
             gh release upload "$GITHUB_REF_NAME" main.js manifest.json styles.css --clobber
           else
+            # No generated notes: a list of commit subjects is not a release description, and
+            # the draft is written by hand before it is published anyway.
             gh release create "$GITHUB_REF_NAME" \
               --draft \
               --title "$GITHUB_REF_NAME" \
-              --generate-notes \
+              --notes "" \
               main.js manifest.json styles.css
           fi
