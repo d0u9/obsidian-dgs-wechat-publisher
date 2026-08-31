@@ -1,6 +1,12 @@
 # AGENTS.md
 
-## 这个仓库在哪
+写给以后改这个插件的人（和 agent）。
+
+**下面每一条约束都是踩过的坑，不是风格偏好。** 每条都写了代价，因为不知道代价的规则最容易被"顺手修好"。改动前先读相关那一节。
+
+---
+
+## 1. 这个仓库在哪
 
 仓库本身就是**本地 Vault 的插件目录**：
 
@@ -8,63 +14,170 @@
 ~/Documents/Obsidian/Douglas.S Local/.obsidian/plugins/obsidian-dgs-wechat-publisher
 ```
 
-所以 `npm run build` 是就地构建，本地 Vault 立刻拿到新版本，不需要额外复制。
+`npm run build` 是就地构建，本地 Vault 立刻拿到新版本。
 
-## 发布
+| 命令 | 作用 |
+|---|---|
+| `npm test` | `node --test`，纯逻辑单元测试 |
+| `npm run lint` | 插件目录评审用的同一套规则 |
+| `npm run build` | 类型检查 + 打包，含产物断言 |
+| `npm run deploy` | 复制到所有 Vault |
+| `npm run release` | build + deploy |
 
-改完代码后跑：
+提交前至少跑 `npm run lint && npm test && npm run build`。
+
+---
+
+## 2. 插件目录评审会卡住的事
+
+社区提交要过一套自动检查。**它的 Error 直接阻塞发布**，Warning 不阻塞但审核员会看。`npm run lint` 跑的就是同一套规则，本地必须 0 error。
+
+### 2.1 不要把插件字段命名为 `settings`
+
+用 `plugin.config`。Obsidian 1.13 给 `Plugin` 加了 `settings` 属性，同名字段会遮蔽它，评审报 `no-unsupported-api` **Error**（0.1.1 就是卡在这里）。
+
+### 2.2 不要引入 `node:fs`，也不要引入任何 Node 模块
+
+Vault 之外的那唯一一个文件（凭证 `.env`）用 Obsidian 自己的 `FileSystemAdapter.readLocalFile()` 读。所有本地文件相关代码只放在 [src/local-file.ts](src/local-file.ts)。
+
+基础库里有个我们从不调用的 `readMarkdownFile`，tree-shaking 会留下 `require("node:fs/promises")`——[esbuild.config.mjs](esbuild.config.mjs) 把该模块换成会抛错的桩，产物里因此没有 fs。
+
+### 2.3 不要读 `process.env`
+
+会被判定为"读取用户身份信息用于机器指纹"。凭证路径因此**必须写完整路径，不支持 `~`**——展开 `~` 就得读 `HOME`，不值得为省几个字符换这个能力。
+
+### 2.4 不要用 `Buffer`
+
+用 Obsidian 的 `arrayBufferToBase64()`。
+
+### 2.5 不要全量枚举 Vault
+
+`vault.getFiles()` / `getMarkdownFiles()` 会被标记为"能拿到 Vault 里每个文件路径"。封面候选只从**文章已经指向的地方**取：bundle 的 `images/`、正文图片、笔记同目录、旁边的 `attachments/`。
+
+按文件名找图交给 `metadataCache.getFirstLinkpathDest()`，它本来就能像 Obsidian 的链接那样全库解析，自己扫一遍是多余的。
+
+> 2.2–2.5 由 production 构建断言把关：产物里出现 `require("node:fs")`、`Buffer.from`、`process.env` 就构建失败。加新的禁用项就加进那个数组。
+
+### 2.6 仓库不依赖 `@types/node`
+
+评审环境没装它，那里所有 Node 内置都是 `any`，会冒出一堆 `no-unsafe-*`。本地装了就看不到他们看到的问题——**装上等于把自己的眼睛蒙上**。
+
+### 2.7 其它硬性要求
+
+- `document.createElement` → 用 `createEl()`
+- 声明为 `=> void` 的回调里不要返回组件对象（链式 `setValue()` 的返回值），会报 `no-misused-promises`
+- 不要用 `builtin-modules` 这个包，用 `node:module` 的 `builtinModules`
+- 插件 id 不能带 `obsidian-` 前缀 → `dgs-wechat-publisher`
+- 必须有 LICENSE（MIT，与上游库一致）
+- **README.md 必须是英文**，中文版放 README.zh-CN.md
+
+### 2.8 已知且接受的 Warning
+
+`getSettingDefinitions()` 未实现——那是 1.13 的声明式设置 API，而 `minAppVersion` 是 1.5.0。实现它会立刻触发 2.1 那个 Error。要消掉只能把 `minAppVersion` 提到 1.13，代价是挡住老版本用户。**这是权衡，不是遗漏。**
+
+---
+
+## 3. 凭证
+
+密钥不进仓库、不进 Vault。设置里的 **Credentials file** 指向 Vault 之外的一个 `.env`，键名 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` / `WECHAT_AUTHOR`。
+
+**这是唯一的凭证入口。** 设置里没有直接填 AppSecret 的字段——曾经有，删掉了：`data.json` 会被 iCloud / Obsidian Sync 带走，而 Obsidian 没有插件沙箱，任何已安装插件都能读它。不要加回来。
+
+- 不要把真实凭证写进代码、测试、README 或提交信息
+- 调试时用 `maskAppId()`，**永远不要打印 secret**
+- 这台机器上用的是 `/Users/doug/Git/Doug Su Photography/.env`（与该站点共用）。**面向用户的文本里不要出现这个路径**，示例一律用 `/Users/you/.config/wechat-publisher/.env` 这类通用路径
+
+---
+
+## 4. 写用户的笔记
+
+写笔记是破坏性操作，这一节的每条都对应一次真实的数据损坏。
+
+### 4.1 不要用 `fileManager.processFrontMatter`
+
+它靠元数据缓存定位已有的 frontmatter 区间；缓存不是最新时，它认为文件没有 frontmatter，于是**在开头插入第二个块**，把笔记弄坏。插件无法保证那一刻缓存是新的。
+
+用 `vault.process` + [src/frontmatter.ts](src/frontmatter.ts) 的 `upsertFrontmatter()`——纯文本合并，有测试覆盖。
+
+### 4.2 合并结果必须验回来
+
+`upsertFrontmatter` 会用**发布流程同一个解析器**把结果解析回来：值对不上、或正文有任何一个字节被改动，就抛错放弃写入。这个守卫抓到过真 bug（见 4.3），不要为了"简化"删掉它。
+
+### 4.3 会被 YAML 重新解释的值必须加引号
+
+标题是 `no`、`007`、`2024-01-01` 时，纯量会被读成 `false`、数字、日期。
+
+### 4.4 frontmatter 的边界判定要与上游解析器一致
+
+[src/frontmatter.ts](src/frontmatter.ts) 的正则刻意抄自基础库（含可选 BOM）。**它认为是 frontmatter 的，才是**——比如 `---\n---` 两边都不算。判定不一致就会写出一个发布流程读不到的块。
+
+### 4.5 回写只写当前发布的那个文件
+
+bundle 里就是那个译本（`zh.md` / `en.md`），`cover` 也一样。封面在概念上是共享的，但用户打开的是译本，去改 `index.md` 等于动了他没在看的文件。
+
+---
+
+## 5. 微信接口的既成事实
+
+- **只创建草稿，永远不要调用群发/发布接口。**
+- 正文图接口只收 jpg/png，单张 ≤ 1 MB。GIF 只能上首帧。
+- 封面走 `add_material?type=thumb`，**占永久素材配额**，只能在后台手删。所以草稿创建失败时必须 `del_material` 归还——已实现，别删。
+- 上传完必须断言正文里不再有未替换的本地图片引用。漏一张，草稿发出去时图只在本地能看，而微信不会报错。
+- access_token 按微信返回的有效期缓存在内存里；`stable_token` 有每日调用限制。
+
+---
+
+## 6. 代码与文案约定
+
+- 排版层来自 pin 住的 `dgs-wechat-publisher`（`github:d0u9/dgs-wechat-publisher#<commit>`）。它只负责 Markdown→微信 HTML，不碰文件、凭证和 HTTP。**要改排版就改上游再更新 pin**，不要在插件里后处理 HTML。
+- bundle 布局（`index.md` + `zh.md`/`en.md` + `images/`）要与上游 `src/bundle.mjs` 一致：同一个文件夹既要能用 CLI 发，也要能用插件发。改这块前先读那个文件。
+- frontmatter 的 `lang` 只切换排版预设（zh 两端对齐/大行距，en 左对齐），与翻译无关。bundle 里**文件名优先于 `lang`**。
+- `isDesktopOnly: true`。可以用 Electron 的 Canvas 和 DOM，但 Node 模块不行（见 2.2）。
+- **设置页文案用英文**（面向社区用户），**运行时 Notice 和报错用中文**（面向写公众号的作者）。不要混。
+
+---
+
+## 7. 测试
+
+- `src/*.ts` 通过 [tests/helpers/load-src.mjs](tests/helpers/load-src.mjs) 现场用 esbuild 编译、把 `obsidian` 换成桩模块来测。**不要为了可测性把代码拆成"无 obsidian 依赖"的文件**——桩已经够用。
+- 桩里的类挂在 `globalThis.__obsidian` 上，测试构造假 Vault 时要用它们，否则 `instanceof` 对不上。
+- 桩的内容是一个**模板字符串**：里面不要出现反引号，会把字符串截断（踩过）。
+- Modal 的回调顺序：`SuggestModal` **先关窗、后报告选择**。`onClose` 里判定"取消"必须延后一个事件循环，否则用户选中的项会被当成取消（踩过，有回归测试）。
+
+---
+
+## 8. 部署与发版
+
+### 8.1 部署到 Vault
 
 ```bash
 npm run release
 ```
 
-等价于 `npm run build && npm run deploy`。部署目标写在 [scripts/deploy.mjs](scripts/deploy.mjs) 的 `VAULTS` 里，目前两个：
+目标写在 [scripts/deploy.mjs](scripts/deploy.mjs) 的 `VAULTS`：
 
 | Vault | 路径 |
 |---|---|
 | local | `~/Documents/Obsidian/Douglas.S Local` |
 | iCloud | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Douglas.S` |
 
-**两个 Vault 都要发**，别只发本地。新增 Vault 时改 `VAULTS` 数组即可。
+- **两个 Vault 都要发**，别只发本地
+- 只复制 `main.js`、`manifest.json`、`styles.css`。**不要复制 `data.json`**，那是每个 Vault 自己的设置
+- 安装文件夹仍叫 `obsidian-dgs-wechat-publisher`，和插件 id 不同。Obsidian 按文件夹加载，两者可以不同——**不要"顺手"改名**，那只会把 `data.json` 挪来挪去
+- 部署后必须在 Obsidian 里 `Cmd+P → Reload app without saving`。**没重载就等于还在跑旧代码**——排查"改了没效果"时先确认这一步
 
-部署只复制 `main.js`、`manifest.json`、`styles.css`。**不要复制 `data.json`**——它是每个 Vault 自己的设置，在没有配置凭证文件的 Vault 里还存着明文 AppSecret。
+### 8.2 发版
 
-部署后需要在 Obsidian 里 `Cmd+P → Reload app without saving` 才生效。
-
-## 发版
-
-版本号只写在三处：`manifest.json`、`package.json`、`versions.json`（外加 lockfile 里的两处）。改完提交，然后打一个**与 manifest 版本逐字相同、不带 `v` 前缀**的标签：
+版本号写在 `manifest.json`、`package.json`、`versions.json`（外加 lockfile 两处），四处必须一致。然后打一个**与 manifest 逐字相同、不带 `v` 前缀**的标签：
 
 ```bash
 git tag -a 0.2.0 -m 0.2.0 && git push origin main 0.2.0
 ```
 
-推标签会触发 [.github/workflows/release.yml](.github/workflows/release.yml)：它校验标签与 `manifest.json`、`versions.json` 一致，跑测试、构建，然后创建一个**草稿** release，附上 `main.js`、`manifest.json`、`styles.css`。草稿要人工确认后才发布——不要在工作流里改成自动发布。
+推标签触发 [.github/workflows/release.yml](.github/workflows/release.yml)：校验标签与 `manifest.json` / `versions.json` 一致 → 测试 → 构建 → 附 attestation → 建**草稿** release。
 
-插件 id 是 `dgs-wechat-publisher`（社区规范不允许 id 带 `obsidian-` 前缀），但这两个 Vault 里的安装文件夹仍叫 `obsidian-dgs-wechat-publisher`。Obsidian 按文件夹加载，两者可以不同——不要"顺手"去改文件夹名，那只会把 `data.json` 挪来挪去。
-
-## 凭证
-
-密钥不放在这个仓库、也不放在 Vault 里。设置里的 **Credentials file** 指向 Vault 之外的一个 `.env`，键名 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` / `WECHAT_AUTHOR`。这是唯一的凭证入口——设置里没有直接填 AppSecret 的字段，不要再加回来。
-
-这台机器上用的是 `~/Git/Doug Su Photography/.env`（与该站点共用），但**任何面向用户的文本里都不要出现这个路径**：插件是给别人用的，README 和设置项的示例一律用 `~/.config/wechat-publisher/.env` 这类通用路径。
-
-不要把任何真实凭证写进代码、测试、README 或提交信息。调试时用 `maskAppId()`，永远不要打印 secret。
-
-## 开发约定
-
-- `npm run lint` 跑的是插件目录评审用的同一套规则（`eslint-plugin-obsidianmd` + typescript-eslint）。提交社区之前必须过——它的 error 会直接卡住发布。
-- **不要引入 `node:fs`**。Vault 之外的那一个文件用 Obsidian 的 `FileSystemAdapter.readLocalFile` 读，production 构建会检查产物里是否出现 `require("node:fs")` 和 `Buffer.from`，出现就直接失败。所有本地文件相关的代码只放在 `src/local-file.ts`。
-- 不要读 `process.env`（会被判定为读取用户身份信息用于指纹识别）。凭证路径因此必须写全，不支持 `~`；production 构建会检查产物里有没有 `process.env`。
-- 仓库**不依赖 `@types/node`**——评审环境没有它，装了只会让本地 lint 看不到他们看到的问题。
-- 不要用 `vault.getFiles()` 等全量枚举：封面候选只从文章已经指向的文件夹里取。
-- 插件自己的设置存在 `plugin.config`，**不要叫 `settings`**：Obsidian 1.13 给 `Plugin` 加了同名属性，会互相遮蔽，评审也会报 `no-unsupported-api`。
-- `npm test` 跑 `node --test`。`src/*.ts` 里的纯函数通过 [tests/helpers/load-src.mjs](tests/helpers/load-src.mjs) 现场用 esbuild 编译并把 `obsidian` 换成桩模块来测——不要为了可测性把代码拆成"无 obsidian 依赖"的文件。
-- 排版层来自 pinned 的 `dgs-wechat-publisher`（`github:d0u9/dgs-wechat-publisher#<commit>`）。它只负责 Markdown→微信 HTML，不碰文件、凭证和 HTTP。要改排版应该改上游并更新 pin，不要在插件里后处理 HTML。
-- frontmatter 的 `lang` 只切换排版预设（zh 两端对齐/大行距，en 左对齐），与翻译无关。在 bundle 里，文件名（`zh.md` / `en.md`）优先于 `lang`。
-- bundle 布局（`index.md` + `zh.md`/`en.md` + `images/`）要与上游 `src/bundle.mjs` 保持一致：同一个文件夹既要能用 CLI 发，也要能用插件发。改这块前先读上游那个文件。
-- 插件是 `isDesktopOnly: true`，可以用 Electron 的 Canvas 和 `node:*`（esbuild 已 external）。
-- 只创建草稿，永远不要调用群发/发布接口。
-- README.md 必须是英文（插件目录的硬性要求），中文版在 README.zh-CN.md。
-- 不要用 `fileManager.processFrontMatter` 写笔记：元数据缓存不是最新时它会在开头插入第二个 frontmatter 块，损坏笔记（已经发生过一次）。用 `vault.process` + `src/frontmatter.ts` 的 `upsertFrontmatter`，它是纯文本合并，有测试覆盖。
-- 设置页（`PublisherSettingTab`）的文案用**英文**，面向社区用户；运行时的 Notice 和报错目前是中文，面向写公众号的作者。改动时别把两者混在一起。
+- **草稿要人工确认后才发布**，不要改成自动发布
+- 不生成 changelog：一串提交标题不是 release 说明，正文留空自己写
+- 标签移动后要重推时用 `--force`，工作流会刷新草稿的附件
+- **已发布的 release 不要改**，发新版本号。工作流遇到已发布的 release 会直接失败退出——那是故意的：替换别人已经下载过的文件，不该由工作流决定
+- GitHub 上的仓库名是 `obsidian-dgs-wechat-publisher`，与插件 id 不同，这没问题
