@@ -93,7 +93,8 @@ contain the damage if it leaks.
 
 For the same reason the plugin uses Node's `fs` to read that one file — the vault API cannot reach
 outside the vault — and lists the vault's images to offer you covers. Neither is used for anything
-else.
+else. Every Node call the plugin makes lives in [src/node.ts](src/node.ts): four functions, one of
+which reads a file. Nothing writes outside the vault.
 
 ## Development
 

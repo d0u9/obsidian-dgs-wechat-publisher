@@ -1,6 +1,4 @@
-import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { isAbsolute, resolve } from 'node:path';
+import { homeDirectory, isAbsolutePath, isFileNotFound, readTextFile, resolvePath } from './node';
 
 export interface Credentials {
   appId: string;
@@ -15,8 +13,8 @@ const AUTHOR_KEY = 'WECHAT_AUTHOR';
 
 function expandHome(path: string): string {
   const trimmed = path.trim();
-  if (trimmed === '~') return homedir();
-  if (trimmed.startsWith('~/')) return resolve(homedir(), trimmed.slice(2));
+  if (trimmed === '~') return homeDirectory();
+  if (trimmed.startsWith('~/')) return resolvePath(homeDirectory(), trimmed.slice(2));
   return trimmed;
 }
 
@@ -44,13 +42,13 @@ export function parseEnv(text: string): Record<string, string> {
 
 export async function loadCredentials(path: string): Promise<Credentials> {
   const absolute = expandHome(path);
-  if (!isAbsolute(absolute)) throw new Error(`凭证文件路径必须是绝对路径：${path}`);
+  if (!isAbsolutePath(absolute)) throw new Error(`凭证文件路径必须是绝对路径：${path}`);
 
   let text: string;
   try {
-    text = await readFile(absolute, 'utf8');
+    text = await readTextFile(absolute);
   } catch (error) {
-    const reason = (error as NodeJS.ErrnoException).code === 'ENOENT' ? '文件不存在' : String(error);
+    const reason = isFileNotFound(error) ? '文件不存在' : String(error);
     throw new Error(`读取凭证文件失败（${absolute}）：${reason}`);
   }
 

@@ -54,6 +54,7 @@ git tag -a 0.2.0 -m 0.2.0 && git push origin main 0.2.0
 ## 开发约定
 
 - `npm run lint` 跑的是插件目录评审用的同一套规则（`eslint-plugin-obsidianmd` + typescript-eslint）。提交社区之前必须过——它的 error 会直接卡住发布。
+- Node 的 API 只能在 `src/node.ts` 里引入，签名写在 `src/types.d.ts`，仓库**不依赖 `@types/node`**——评审环境没有它，装了只会让本地 lint 看不到他们看到的问题。
 - 插件自己的设置存在 `plugin.config`，**不要叫 `settings`**：Obsidian 1.13 给 `Plugin` 加了同名属性，会互相遮蔽，评审也会报 `no-unsupported-api`。
 - `npm test` 跑 `node --test`。`src/*.ts` 里的纯函数通过 [tests/helpers/load-src.mjs](tests/helpers/load-src.mjs) 现场用 esbuild 编译并把 `obsidian` 换成桩模块来测——不要为了可测性把代码拆成"无 obsidian 依赖"的文件。
 - 排版层来自 pinned 的 `dgs-wechat-publisher`（`github:d0u9/dgs-wechat-publisher#<commit>`）。它只负责 Markdown→微信 HTML，不碰文件、凭证和 HTTP。要改排版应该改上游并更新 pin，不要在插件里后处理 HTML。

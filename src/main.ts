@@ -1,4 +1,4 @@
-import { MarkdownView, Notice, Plugin, requestUrl, TFile, TFolder } from 'obsidian';
+import { arrayBufferToBase64, MarkdownView, Notice, Plugin, requestUrl, TFile, TFolder } from 'obsidian';
 import { extractImageSources, isRemoteSource, joinVaultPath, prepareArticle, PreparedArticle, replaceImageSource, resolveVaultImage } from './article';
 import { PreparedImage, prepareBodyImage, prepareCover } from './image';
 import { chooseCover, chooseTranslation, confirmDraft, CoverCandidate, DraftDecision, IMAGE_EXTENSIONS, PreviewModal } from './ui';
@@ -175,7 +175,7 @@ export default class WechatPublisherPlugin extends Plugin implements SettingsHos
   private showPreview(bundle: ResolvedBundle, article: PreparedArticle, prepared: PreparedMedia): void {
     let html = article.html;
     for (const [source, image] of prepared.images) {
-      const base64 = Buffer.from(image.bytes).toString('base64');
+      const base64 = arrayBufferToBase64(image.bytes);
       html = replaceImageSource(html, source, `data:${image.contentType};base64,${base64}`);
     }
     new PreviewModal(this.app, article.title || this.fallbackTitle(bundle), html).open();
