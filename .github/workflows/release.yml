@@ -1,0 +1,55 @@
+# Push a version tag, get a draft release with the three files Obsidian installs.
+# The release is left as a draft on purpose: publishing it is a human decision.
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Obsidian installs a plugin by the version in its manifest, so a tag that disagrees with the
+      # manifest ships the wrong version number to everyone who updates. Catch it before building.
+      - name: Check the tag against manifest.json
+        run: |
+          manifest=$(node -p "require('./manifest.json').version")
+          if [ "$manifest" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match manifest.json version $manifest" >&2
+            exit 1
+          fi
+          node -e "
+            const versions = require('./versions.json');
+            if (!versions['$GITHUB_REF_NAME']) {
+              console.error('versions.json has no entry for $GITHUB_REF_NAME');
+              process.exit(1);
+            }
+          "
+
+      - run: npm test
+
+      - run: npm run build
+
+      - name: Draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME"
+          --draft
+          --title "$GITHUB_REF_NAME"
+          --generate-notes
+          main.js manifest.json styles.css

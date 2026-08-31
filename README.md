@@ -57,6 +57,16 @@
 
 单文件笔记的行为完全不变：同目录没有 `index.md` 就不构成 bundle。
 
+## 发版
+
+推一个版本标签即可：
+
+```bash
+git tag -a 0.1.0 -m 0.1.0 && git push origin main 0.1.0
+```
+
+GitHub Actions 会校验标签与 `manifest.json` / `versions.json` 一致，跑测试和构建，然后创建一个**草稿** release，附带 Obsidian 安装所需的 `main.js`、`manifest.json`、`styles.css`。确认无误后在 GitHub 上手动点发布。
+
 ## 设计
 
 - `src/article.ts`：Markdown/frontmatter、Wiki 图片语法和 Vault 路径适配。

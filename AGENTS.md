@@ -31,6 +31,16 @@ npm run release
 
 部署后需要在 Obsidian 里 `Cmd+P → Reload app without saving` 才生效。
 
+## 发版
+
+版本号只写在三处：`manifest.json`、`package.json`、`versions.json`（外加 lockfile 里的两处）。改完提交，然后打一个**与 manifest 版本逐字相同、不带 `v` 前缀**的标签：
+
+```bash
+git tag -a 0.2.0 -m 0.2.0 && git push origin main 0.2.0
+```
+
+推标签会触发 [.github/workflows/release.yml](.github/workflows/release.yml)：它校验标签与 `manifest.json`、`versions.json` 一致，跑测试、构建，然后创建一个**草稿** release，附上 `main.js`、`manifest.json`、`styles.css`。草稿要人工确认后才发布——不要在工作流里改成自动发布。
+
 ## 凭证
 
 密钥不放在这个仓库、也不放在 Vault 里。设置里的 **Credentials file** 指向 Vault 之外的一个 `.env`，键名 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` / `WECHAT_AUTHOR`。这是唯一的凭证入口——设置里没有直接填 AppSecret 的字段，不要再加回来。
