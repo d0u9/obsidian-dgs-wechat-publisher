@@ -65,7 +65,9 @@
 - `src/wechat-api.ts`：获取 token、上传正文图/封面、调用 `draft/add`。
 - `src/bundle.ts`：bundle 布局的解析——译本、共享 frontmatter、约定俗成的封面。
 - `src/credentials.ts`：从 Vault 之外的 `.env` 读取凭证。
-- `src/main.ts`：Obsidian 命令、预检、确认门和设置。
+- `src/frontmatter.ts`：把回写 frontmatter 做成纯文本合并。
+- `src/settings.ts`：设置项与设置面板。
+- `src/main.ts`：Obsidian 命令、发布流程的编排。
 
 密钥只存在于 Vault 之外的那个 `.env` 里，插件每次发布时读取，不写入 `data.json`。这样做的理由：`data.json` 会被 Vault 的同步链路（iCloud、Obsidian Sync 等）带走，而 Obsidian 没有插件沙箱，任何已安装的社区插件都能读它。AppSecret 是公众号的主凭证，可用于群发、改菜单、拉取粉丝列表，权限远超本插件所需。
 

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadSrc } from './helpers/load-src.mjs';
 
-const { extractImageSources, prepareArticle, rewriteWikiImageEmbeds } = await loadSrc('article.ts');
+const { extractImageSources, prepareArticle, replaceImageSource, rewriteWikiImageEmbeds } = await loadSrc('article.ts');
 
 test('wiki image embeds become standard Markdown images', () => {
   assert.equal(rewriteWikiImageEmbeds('![[photo.jpg]]'), '![](photo.jpg)');
@@ -25,6 +25,20 @@ test('frontmatter is left alone', () => {
 test('image sources are extracted once, under either quote style', () => {
   const html = `<img src="a.jpg"><img src='b.jpg'><img alt="x" src="a.jpg">`;
   assert.deepEqual(extractImageSources(html), ['a.jpg', 'b.jpg']);
+});
+
+test('an image source is swapped under either quote style, and only in src', () => {
+  const html = `<img src="a.jpg"><img src='a.jpg' alt="a.jpg"><img src="ab.jpg">`;
+  assert.equal(
+    replaceImageSource(html, 'a.jpg', 'https://mmbiz.qpic.cn/x'),
+    `<img src="https://mmbiz.qpic.cn/x"><img src='https://mmbiz.qpic.cn/x' alt="a.jpg"><img src="ab.jpg">`,
+  );
+});
+
+test('a source with regex characters is matched literally', () => {
+  const html = '<img src="images/a+b (1).jpg">';
+  assert.equal(replaceImageSource(html, 'images/a+b (1).jpg', 'X'), '<img src="X">');
+  assert.equal(replaceImageSource(html, 'images/a.b (1).jpg', 'X'), html);
 });
 
 const article = (body) => `---\ntitle: 标题\ndescription: 摘要\ncover: cover.jpg\n---\n\n${body}\n`;

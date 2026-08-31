@@ -79,6 +79,16 @@ export interface ArticleContext {
   lang?: 'zh' | 'en';
 }
 
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Swap one <img src> value, whichever quote style the renderer emitted. */
+export function replaceImageSource(html: string, source: string, replacement: string): string {
+  return html.replace(
+    new RegExp(`(<img\\b[^>]*?\\bsrc=)(["'])${escapeRegExp(source)}\\2`, 'gi'),
+    (_all, prefix: string, quote: string) => `${prefix}${quote}${replacement}${quote}`,
+  );
+}
+
 export async function prepareArticle(
   source: string,
   context: ArticleContext,
