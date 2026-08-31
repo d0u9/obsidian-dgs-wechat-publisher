@@ -18,7 +18,11 @@ export const DEFAULT_SETTINGS: PublisherSettings = { credentialsPath: '', author
  * plugin class, which would import the pane straight back.
  */
 export interface SettingsHost {
-  settings: PublisherSettings;
+  /**
+   * Not called `settings`: Obsidian 1.13 added a `Plugin.settings` of its own, and a plugin that
+   * declares one shadows it.
+   */
+  config: PublisherSettings;
   saveSettings(): Promise<void>;
   credentials(): Promise<Credentials>;
 }
@@ -44,8 +48,8 @@ export class PublisherSettingTab extends PluginSettingTab {
       'Credentials file',
       'Absolute path to a .env file outside this vault, holding WECHAT_APP_ID, WECHAT_APP_SECRET and optionally WECHAT_AUTHOR. '
         + 'The file is read on each publish, so no secret is ever stored in this vault.',
-      (value) => { this.plugin.settings.credentialsPath = value.trim(); },
-      (text) => text.setPlaceholder('~/.config/wechat-publisher/.env').setValue(this.plugin.settings.credentialsPath),
+      (value) => { this.plugin.config.credentialsPath = value.trim(); },
+      (text) => { text.setPlaceholder('~/.config/wechat-publisher/.env').setValue(this.plugin.config.credentialsPath); },
     ).addButton((button) => button.setButtonText('Check').onClick(async () => {
       this.save.run();
       try {
@@ -60,20 +64,20 @@ export class PublisherSettingTab extends PluginSettingTab {
     this.field(
       'Default author',
       'Used when neither the note frontmatter nor WECHAT_AUTHOR names one.',
-      (value) => { this.plugin.settings.author = value; },
-      (text) => text.setValue(this.plugin.settings.author),
+      (value) => { this.plugin.config.author = value; },
+      (text) => { text.setValue(this.plugin.config.author); },
     );
     this.field(
       'Default cover',
       'Vault path of a fallback cover image. It is offered first when a note has no cover of its own; it is never used without asking.',
-      (value) => { this.plugin.settings.defaultCover = value.trim(); },
-      (text) => text.setPlaceholder('assets/cover.jpg').setValue(this.plugin.settings.defaultCover),
+      (value) => { this.plugin.config.defaultCover = value.trim(); },
+      (text) => { text.setPlaceholder('assets/cover.jpg').setValue(this.plugin.config.defaultCover); },
     );
     new Setting(this.containerEl)
       .setName('Remember what you fill in')
       .setDesc('After a draft is created, write the cover, title and digest you supplied in the confirmation dialog back into the note frontmatter, so the next publish does not ask again.')
-      .addToggle((toggle) => toggle.setValue(this.plugin.settings.rememberChoices).onChange((value) => {
-        this.plugin.settings.rememberChoices = value;
+      .addToggle((toggle) => toggle.setValue(this.plugin.config.rememberChoices).onChange((value) => {
+        this.plugin.config.rememberChoices = value;
         this.save();
       }));
 

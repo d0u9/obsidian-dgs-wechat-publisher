@@ -51,7 +51,7 @@ async function loadImage(bytes: ArrayBuffer, kind: ImageKind): Promise<{ image: 
 
 function drawScaled(image: HTMLImageElement, maxWidth: number, opaque: boolean): HTMLCanvasElement {
   const scale = Math.min(1, maxWidth / image.naturalWidth);
-  const canvas = document.createElement('canvas');
+  const canvas = createEl('canvas');
   canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
   canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
   const context = canvas.getContext('2d');
@@ -105,7 +105,7 @@ export async function prepareCover(bytes: ArrayBuffer): Promise<PreparedImage> {
   // original framing nor its format survives anyway.
   const { image, revoke } = await loadImage(bytes, sniffImageKind(bytes));
   try {
-    const canvas = document.createElement('canvas');
+    const canvas = createEl('canvas');
     canvas.width = 900;
     canvas.height = 500;
     const context = canvas.getContext('2d');

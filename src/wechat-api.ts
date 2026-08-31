@@ -4,6 +4,12 @@ import { PreparedImage } from './image';
 const API_ROOT = 'https://api.weixin.qq.com';
 const encoder = new TextEncoder();
 
+/** Everything WeChat answers with is a JSON object; which keys are present depends on the call. */
+type Payload = Record<string, unknown>;
+
+const text = (payload: Payload, key: string): string | undefined =>
+  typeof payload[key] === 'string' ? payload[key] : undefined;
+
 function apiError(payload: unknown): never {
   const record = payload as { errcode?: number; errmsg?: string } | null;
   if (record?.errcode === 40164) throw new Error('微信拒绝了当前公网 IP，请把本机出口 IP 加入公众号白名单。');
@@ -12,17 +18,17 @@ function apiError(payload: unknown): never {
   throw new Error(`微信 API 请求失败：${JSON.stringify(payload)}`);
 }
 
-async function jsonRequest(url: string, options: { method?: string; body?: string | ArrayBuffer; headers?: Record<string, string> } = {}) {
+async function jsonRequest(url: string, options: { method?: string; body?: string | ArrayBuffer; headers?: Record<string, string> } = {}): Promise<Payload> {
   const response = await requestUrl({ url, method: options.method ?? 'GET', body: options.body, headers: options.headers, throw: false });
-  let payload: any;
+  let payload: Payload;
   try {
-    payload = response.json;
+    payload = response.json as Payload;
   } catch {
     // A gateway or proxy error answers with HTML, and `response.json` throws while parsing it.
     // Report what actually came back instead of a SyntaxError from deep inside Obsidian.
     throw new Error(`微信 API 返回了非 JSON 响应（HTTP ${response.status}）：${response.text.slice(0, 200)}`);
   }
-  if (response.status < 200 || response.status >= 300 || payload?.errcode) apiError(payload);
+  if (response.status < 200 || response.status >= 300 || payload.errcode) apiError(payload);
   return payload;
 }
 
@@ -43,10 +49,11 @@ export async function getAccessToken(appId: string, appSecret: string): Promise<
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ grant_type: 'client_credential', appid: appId, secret: appSecret, force_refresh: false }),
   });
-  if (!payload.access_token) apiError(payload);
+  const token = text(payload, 'access_token');
+  if (!token) apiError(payload);
   const lifetime = typeof payload.expires_in === 'number' ? payload.expires_in : 7200;
-  tokens.set(appId, { token: payload.access_token, expiresAt: Date.now() + Math.max(0, lifetime - 60) * 1000 });
-  return payload.access_token;
+  tokens.set(appId, { token, expiresAt: Date.now() + Math.max(0, lifetime - 60) * 1000 });
+  return token;
 }
 
 function concat(chunks: Uint8Array[]): ArrayBuffer {
@@ -57,7 +64,7 @@ function concat(chunks: Uint8Array[]): ArrayBuffer {
   return output.buffer;
 }
 
-async function uploadImage(token: string, endpoint: string, image: PreparedImage) {
+async function uploadImage(token: string, endpoint: string, image: PreparedImage): Promise<Payload> {
   const boundary = `----obsidian-wechat-${Date.now().toString(16)}`;
   const head = encoder.encode(`--${boundary}\r\nContent-Disposition: form-data; name="media"; filename="${image.filename}"\r\nContent-Type: ${image.contentType}\r\n\r\n`);
   const tail = encoder.encode(`\r\n--${boundary}--\r\n`);
@@ -70,14 +77,12 @@ async function uploadImage(token: string, endpoint: string, image: PreparedImage
 
 export async function uploadBodyImage(token: string, image: PreparedImage): Promise<string> {
   const payload = await uploadImage(token, '/cgi-bin/media/uploadimg', image);
-  if (!payload.url) apiError(payload);
-  return payload.url;
+  return text(payload, 'url') ?? apiError(payload);
 }
 
 export async function uploadCover(token: string, image: PreparedImage): Promise<string> {
   const payload = await uploadImage(token, '/cgi-bin/material/add_material?type=thumb', image);
-  if (!payload.media_id) apiError(payload);
-  return payload.media_id;
+  return text(payload, 'media_id') ?? apiError(payload);
 }
 
 /**
@@ -98,6 +103,5 @@ export async function createDraft(token: string, article: Record<string, unknown
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ articles: [article] }),
   });
-  if (!payload.media_id) apiError(payload);
-  return payload.media_id;
+  return text(payload, 'media_id') ?? apiError(payload);
 }

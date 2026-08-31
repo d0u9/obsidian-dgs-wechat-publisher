@@ -15,14 +15,15 @@ interface PreparedMedia {
 }
 
 export default class WechatPublisherPlugin extends Plugin implements SettingsHost {
-  settings: PublisherSettings = DEFAULT_SETTINGS;
+  config: PublisherSettings = DEFAULT_SETTINGS;
 
   async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+    await this.saveData(this.config);
   }
 
   async onload(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const stored: unknown = await this.loadData();
+    this.config = { ...DEFAULT_SETTINGS, ...(stored as Partial<PublisherSettings> | null) };
     this.addSettingTab(new PublisherSettingTab(this.app, this));
     this.addRibbonIcon('send', '发布到微信公众号草稿箱', () => void this.run('publish'));
     this.addCommand({
@@ -42,10 +43,10 @@ export default class WechatPublisherPlugin extends Plugin implements SettingsHos
    * in this vault's data.json. They are read per run: the file is the source of truth.
    */
   async credentials(): Promise<Credentials> {
-    const path = this.settings.credentialsPath.trim();
+    const path = this.config.credentialsPath.trim();
     if (!path) throw new Error('请先在插件设置中填写凭证文件路径（一个含 WECHAT_APP_ID / WECHAT_APP_SECRET 的 .env）。');
     const loaded = await loadCredentials(path);
-    return { ...loaded, author: loaded.author || this.settings.author.trim() };
+    return { ...loaded, author: loaded.author || this.config.author.trim() };
   }
 
   /**
@@ -69,7 +70,7 @@ export default class WechatPublisherPlugin extends Plugin implements SettingsHos
       }
     };
 
-    if (this.settings.defaultCover.trim()) add(resolve(this.settings.defaultCover), '默认封面');
+    if (this.config.defaultCover.trim()) add(resolve(this.config.defaultCover), '默认封面');
     for (const source of article.imageSources) {
       if (!isRemoteSource(source)) add(resolve(source), '正文图片');
     }
@@ -274,7 +275,7 @@ export default class WechatPublisherPlugin extends Plugin implements SettingsHos
    * than repeating a line.
    */
   private async rememberDialogAnswers(bundle: ResolvedBundle, article: PreparedArticle, decision: DraftDecision, chosenCover: TFile | null): Promise<void> {
-    if (!this.settings.rememberChoices) return;
+    if (!this.config.rememberChoices) return;
 
     const additions: Record<string, string> = {};
     if (chosenCover) additions.cover = chosenCover.path;

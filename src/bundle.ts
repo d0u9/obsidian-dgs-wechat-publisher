@@ -62,7 +62,7 @@ export interface ResolvedBundle {
 
 function readFrontmatter(app: App, file: TFile | null): Record<string, unknown> {
   if (!file) return {};
-  return { ...app.metadataCache.getFileCache(file)?.frontmatter } as Record<string, unknown>;
+  return { ...app.metadataCache.getFileCache(file)?.frontmatter };
 }
 
 function indexOf(folder: TFolder | null): TFile | null {
