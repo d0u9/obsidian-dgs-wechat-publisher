@@ -64,6 +64,37 @@ export function chooseCover(app: App, candidates: CoverCandidate[]): Promise<TFi
   return new Promise((resolve) => new CoverSuggestModal(app, candidates, resolve).open());
 }
 
+class TranslationSuggestModal extends FuzzySuggestModal<TFile> {
+  private settled = false;
+
+  constructor(app: App, private readonly translations: TFile[], private readonly done: (file: TFile | null) => void) {
+    super(app);
+    this.setPlaceholder('这个 bundle 有多个译本，选择要发布的一个…');
+  }
+
+  getItems(): TFile[] { return this.translations; }
+
+  getItemText(file: TFile): string { return file.basename; }
+
+  onChooseItem(file: TFile): void { this.settle(file); }
+
+  onClose(): void {
+    // Same ordering as the cover picker: the close arrives before the choice does.
+    window.setTimeout(() => this.settle(null), 0);
+    super.onClose();
+  }
+
+  private settle(file: TFile | null): void {
+    if (this.settled) return;
+    this.settled = true;
+    this.done(file);
+  }
+}
+
+export function chooseTranslation(app: App, translations: TFile[]): Promise<TFile | null> {
+  return new Promise((resolve) => new TranslationSuggestModal(app, translations, resolve).open());
+}
+
 export class PreviewModal extends Modal {
   constructor(app: App, private readonly title: string, private readonly html: string) { super(app); }
 

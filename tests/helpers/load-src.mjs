@@ -11,6 +11,7 @@ const obsidianStub = {
     build.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({
       contents: `
         export class TFile {}
+        export class TFolder {}
         export const normalizePath = (value) => value.replace(/\\\\/g, '/').replace(/\\/+/g, '/');
         // Enough of the modal surface to exercise the promise-settling logic. Instances register
         // themselves on open, so a test can drive the callbacks Obsidian would call.

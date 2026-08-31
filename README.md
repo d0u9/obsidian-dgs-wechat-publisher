@@ -36,12 +36,34 @@
 
 若开启 **Remember what you fill in**（默认开启），草稿创建成功后会把你在确认框里补的 `cover`、`title`、`description`、`author` 写回笔记 frontmatter，下次发布同一篇就不再询问。
 
+## Bundle（一篇文章一个文件夹）
+
+一篇文章也可以是一个文件夹，与基础库 `dgs-wechat-publisher` 的 bundle 布局一致，同一个文件夹既能用 CLI 发，也能用本插件发：
+
+```
+我的文章/
+├── index.md      共享的、与语言无关的 frontmatter —— 尤其是 cover
+├── zh.md         title 和 description，天然是逐语言的
+├── en.md
+└── images/
+    └── cover.jpg
+```
+
+- 在 `zh.md` 上执行命令，会自动读取同目录的 `index.md` 作为共享 frontmatter；**译本里写的同名字段优先**。
+- 在 `index.md` 上执行命令，插件会问你要发布哪个译本（只有一个译本时直接用它）。
+- 文件名 `zh.md` / `en.md` 决定排版预设，**优先于** frontmatter 里的 `lang`。其它名字（如 `notes.md`）不视为语言，仍看 `lang`。
+- 没有任何地方声明 `cover` 时，插件会自动使用 `images/cover.{jpg,jpeg,png,webp,avif}`，找不到才弹出选择框；选择框里 bundle 的 `images/` 会排在前面。
+- 写回 frontmatter 时，`cover` 写进 `index.md`（它对所有译本是同一张），`title` / `description` / `author` 写进当前发布的那个译本。
+
+单文件笔记的行为完全不变：同目录没有 `index.md` 就不构成 bundle。
+
 ## 设计
 
 - `src/article.ts`：Markdown/frontmatter、Wiki 图片语法和 Vault 路径适配。
 - `dgs-wechat-publisher`：Markdown 渲染、微信兼容的内联排版、自包含校验。
 - `src/image.ts`：使用 Electron 的 Canvas 在本地压缩图片，不依赖原生 `sharp` 模块。
 - `src/wechat-api.ts`：获取 token、上传正文图/封面、调用 `draft/add`。
+- `src/bundle.ts`：bundle 布局的解析——译本、共享 frontmatter、约定俗成的封面。
 - `src/credentials.ts`：从 Vault 之外的 `.env` 读取凭证。
 - `src/main.ts`：Obsidian 命令、预检、确认门和设置。
 

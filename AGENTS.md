@@ -43,7 +43,8 @@ npm run release
 
 - `npm test` 跑 `node --test`。`src/*.ts` 里的纯函数通过 [tests/helpers/load-src.mjs](tests/helpers/load-src.mjs) 现场用 esbuild 编译并把 `obsidian` 换成桩模块来测——不要为了可测性把代码拆成"无 obsidian 依赖"的文件。
 - 排版层来自 pinned 的 `dgs-wechat-publisher`（`github:d0u9/dgs-wechat-publisher#<commit>`）。它只负责 Markdown→微信 HTML，不碰文件、凭证和 HTTP。要改排版应该改上游并更新 pin，不要在插件里后处理 HTML。
-- frontmatter 的 `lang` 只切换排版预设（zh 两端对齐/大行距，en 左对齐），与翻译无关。
+- frontmatter 的 `lang` 只切换排版预设（zh 两端对齐/大行距，en 左对齐），与翻译无关。在 bundle 里，文件名（`zh.md` / `en.md`）优先于 `lang`。
+- bundle 布局（`index.md` + `zh.md`/`en.md` + `images/`）要与上游 `src/bundle.mjs` 保持一致：同一个文件夹既要能用 CLI 发，也要能用插件发。改这块前先读上游那个文件。
 - 插件是 `isDesktopOnly: true`，可以用 Electron 的 Canvas 和 `node:*`（esbuild 已 external）。
 - 只创建草稿，永远不要调用群发/发布接口。
 - 设置页（`PublisherSettingTab`）的文案用**英文**，面向社区用户；运行时的 Notice 和报错目前是中文，面向写公众号的作者。改动时别把两者混在一起。

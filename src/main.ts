@@ -9,10 +9,12 @@ import {
   Setting,
   TextComponent,
   TFile,
+  TFolder,
 } from 'obsidian';
-import { extractImageSources, isRemoteSource, prepareArticle, PreparedArticle, resolveVaultImage } from './article';
+import { extractImageSources, isRemoteSource, joinVaultPath, prepareArticle, PreparedArticle, resolveVaultImage } from './article';
 import { PreparedImage, prepareBodyImage, prepareCover } from './image';
-import { chooseCover, confirmDraft, CoverCandidate, DraftDecision, IMAGE_EXTENSIONS, PreviewModal } from './ui';
+import { chooseCover, chooseTranslation, confirmDraft, CoverCandidate, DraftDecision, IMAGE_EXTENSIONS, PreviewModal } from './ui';
+import { BUNDLE_INDEX, conventionalCoverPaths, ResolvedBundle, resolveBundle } from './bundle';
 import { createDraft, deleteMaterial, forgetAccessToken, getAccessToken, uploadBodyImage, uploadCover } from './wechat-api';
 import { Credentials, loadCredentials, maskAppId } from './credentials';
 
@@ -78,7 +80,8 @@ export default class WechatPublisherPlugin extends Plugin {
    * Order the images a cover could plausibly be, best guess first: a note's own pictures are the
    * likeliest cover, so the answer is usually the top row of the picker.
    */
-  private coverCandidates(note: TFile, article: PreparedArticle): CoverCandidate[] {
+  private coverCandidates(bundle: ResolvedBundle, article: PreparedArticle): CoverCandidate[] {
+    const note = bundle.file;
     const candidates: CoverCandidate[] = [];
     const seen = new Set<string>();
     const add = (file: TFile | null, label: string) => {
@@ -97,6 +100,13 @@ export default class WechatPublisherPlugin extends Plugin {
     if (this.settings.defaultCover.trim()) add(resolve(this.settings.defaultCover), '默认封面');
     for (const source of article.imageSources) {
       if (!isRemoteSource(source)) add(resolve(source), '正文图片');
+    }
+    // A bundle keeps its pictures in images/, one level below the translation being published.
+    const bundleImages = this.app.vault.getAbstractFileByPath(joinVaultPath(bundle.baseDir, 'images'));
+    if (bundleImages instanceof TFolder) {
+      for (const child of bundleImages.children) {
+        if (child instanceof TFile) add(child, 'bundle 图片');
+      }
     }
     const folder = note.parent?.path;
     const images = this.app.vault.getFiles()
@@ -145,13 +155,26 @@ export default class WechatPublisherPlugin extends Plugin {
 
   private async run(mode: 'preview' | 'publish'): Promise<void> {
     try {
-      const note = this.currentNote();
       const credentials = await this.credentials();
-      const article = await prepareArticle(await this.app.vault.read(note), credentials);
+      const bundle = await resolveBundle(this.app, this.currentNote(), (translations) => chooseTranslation(this.app, translations));
+      if (!bundle) {
+        new Notice('已取消：没有选择要发布的译本。');
+        return;
+      }
+      const note = bundle.file;
+      const article = await prepareArticle(await this.app.vault.read(note), {
+        author: credentials.author,
+        shared: bundle.shared,
+        lang: bundle.lang,
+      });
 
       let chosenCover: TFile | null = null;
       if (!article.cover) {
-        chosenCover = await chooseCover(this.app, this.coverCandidates(note, article));
+        // A bundle keeps its cover at images/cover.*; take that before bothering the author.
+        const conventional = conventionalCoverPaths(bundle.baseDir)
+          .map((path) => this.app.vault.getAbstractFileByPath(path))
+          .find((file): file is TFile => file instanceof TFile);
+        chosenCover = conventional ?? await chooseCover(this.app, this.coverCandidates(bundle, article));
         if (!chosenCover) {
           new Notice('已取消：没有选择封面。');
           return;
@@ -168,21 +191,21 @@ export default class WechatPublisherPlugin extends Plugin {
         preparing.hide();
       }
 
-      if (mode === 'preview') this.showPreview(note, article, prepared);
-      else await this.publish(note, article, prepared, credentials, chosenCover);
+      if (mode === 'preview') this.showPreview(bundle, article, prepared);
+      else await this.publish(bundle, article, prepared, credentials, chosenCover);
     } catch (error) {
       console.error('DGS WeChat Publisher:', error);
       new Notice(error instanceof Error ? error.message : String(error), 10000);
     }
   }
 
-  private showPreview(note: TFile, article: PreparedArticle, prepared: PreparedMedia): void {
+  private showPreview(bundle: ResolvedBundle, article: PreparedArticle, prepared: PreparedMedia): void {
     let html = article.html;
     for (const [source, image] of prepared.images) {
       const base64 = Buffer.from(image.bytes).toString('base64');
       html = replaceImageSource(html, source, `data:${image.contentType};base64,${base64}`);
     }
-    new PreviewModal(this.app, article.title || note.basename, html).open();
+    new PreviewModal(this.app, article.title || this.fallbackTitle(bundle), html).open();
 
     const summary = `预检通过：${article.imageSources.length} 张正文图片，封面已验证。`;
     const gaps = ([['title', '标题'], ['digest', '摘要']] as const).filter(([key]) => !article[key]).map(([, name]) => name);
@@ -190,7 +213,7 @@ export default class WechatPublisherPlugin extends Plugin {
   }
 
   private async publish(
-    note: TFile,
+    bundle: ResolvedBundle,
     article: PreparedArticle,
     prepared: PreparedMedia,
     credentials: Credentials,
@@ -202,7 +225,7 @@ export default class WechatPublisherPlugin extends Plugin {
       digest: article.digest,
       author: article.author,
       cover: article.cover,
-      coverUrl: this.displayUrl(note, article.cover),
+      coverUrl: this.displayUrl(bundle.file, article.cover),
       imageCount: article.imageSources.length,
     });
     if (!decision) return;
@@ -217,7 +240,7 @@ export default class WechatPublisherPlugin extends Plugin {
       const mediaId = await this.createDraftOrReclaim(token, thumbMediaId, html, decision, notice);
 
       notice.hide();
-      await this.rememberDialogAnswers(note, article, decision, chosenCover);
+      await this.rememberDialogAnswers(bundle, article, decision, chosenCover);
       new Notice(`草稿创建成功：${mediaId}`, 8000);
     } catch (error) {
       notice.hide();
@@ -267,17 +290,38 @@ export default class WechatPublisherPlugin extends Plugin {
     }
   }
 
-  /** Write what the dialog asked for back into the note, so the next publish needs no dialog. */
-  private async rememberDialogAnswers(note: TFile, article: PreparedArticle, decision: DraftDecision, chosenCover: TFile | null): Promise<void> {
+  /** A bundle translation is named after its language, so the folder is the recognisable name. */
+  private fallbackTitle(bundle: ResolvedBundle): string {
+    return bundle.isBundle ? bundle.file.parent?.name ?? bundle.file.basename : bundle.file.basename;
+  }
+
+  /**
+   * Write what the dialog asked for back into the note, so the next publish needs no dialog. In a
+   * bundle the cover is shared by every translation, so it belongs in index.md — exactly where the
+   * layout puts it — while the title and digest stay with the translation that was published.
+   */
+  private async rememberDialogAnswers(bundle: ResolvedBundle, article: PreparedArticle, decision: DraftDecision, chosenCover: TFile | null): Promise<void> {
     if (!this.settings.rememberChoices) return;
-    const additions: Record<string, string> = {};
-    if (chosenCover) additions.cover = chosenCover.path;
-    if (!article.title && decision.title) additions.title = decision.title;
-    if (!article.digest && decision.digest) additions.description = decision.digest;
-    if (!article.author && decision.author) additions.author = decision.author;
+
+    const perArticle: Record<string, string> = {};
+    if (!article.title && decision.title) perArticle.title = decision.title;
+    if (!article.digest && decision.digest) perArticle.description = decision.digest;
+    if (!article.author && decision.author) perArticle.author = decision.author;
+
+    const shared: Record<string, string> = {};
+    if (chosenCover) shared.cover = chosenCover.path;
+
+    const index = bundle.isBundle
+      ? bundle.file.parent?.children.find((entry): entry is TFile => entry instanceof TFile && entry.name === BUNDLE_INDEX) ?? null
+      : null;
+    await this.writeFrontMatter(bundle.file, index ? perArticle : { ...perArticle, ...shared });
+    if (index) await this.writeFrontMatter(index, shared);
+  }
+
+  private async writeFrontMatter(file: TFile, additions: Record<string, string>): Promise<void> {
     if (!Object.keys(additions).length) return;
-    await this.app.fileManager.processFrontMatter(note, (frontmatter) => Object.assign(frontmatter, additions))
-      .catch((error) => console.error('DGS WeChat Publisher: 写回 frontmatter 失败', error));
+    await this.app.fileManager.processFrontMatter(file, (frontmatter) => Object.assign(frontmatter, additions))
+      .catch((error) => console.error(`DGS WeChat Publisher: 写回 ${file.path} 的 frontmatter 失败`, error));
   }
 }
 

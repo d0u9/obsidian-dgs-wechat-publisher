@@ -71,12 +71,21 @@ export function extractImageSources(html: string): string[] {
   return [...new Set(sources)];
 }
 
+export interface ArticleContext {
+  author: string;
+  /** Frontmatter shared by every translation of a bundle; the article's own always wins. */
+  shared?: Record<string, unknown>;
+  /** Language implied by a bundle translation's filename, which outranks frontmatter. */
+  lang?: 'zh' | 'en';
+}
+
 export async function prepareArticle(
   source: string,
-  defaults: { author: string },
+  context: ArticleContext,
 ): Promise<PreparedArticle> {
-  const { frontmatter, html: renderedHtml } = await renderMarkdown(rewriteWikiImageEmbeds(source));
-  const lang = scalar(frontmatter.lang) === 'en' ? 'en' : 'zh';
+  const { frontmatter: own, html: renderedHtml } = await renderMarkdown(rewriteWikiImageEmbeds(source));
+  const frontmatter = { ...context.shared, ...own };
+  const lang = context.lang ?? (scalar(frontmatter.lang) === 'en' ? 'en' : 'zh');
   // `lang` only picks a typography preset (line height, tracking, justification); the Markdown
   // itself renders the same either way, so one render feeds both languages.
   const html = wechatPublisher.toWechatHtml(renderedHtml, { lang });
@@ -87,7 +96,7 @@ export async function prepareArticle(
   const metadata: ArticleMetadata = {
     title: scalar(frontmatter.title),
     digest: scalar(frontmatter.description) || scalar(frontmatter.digest),
-    author: scalar(frontmatter.author) || defaults.author.trim(),
+    author: scalar(frontmatter.author) || context.author.trim(),
     cover: scalar(frontmatter.cover),
     lang,
   };
