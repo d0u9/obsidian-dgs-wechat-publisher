@@ -47,4 +47,5 @@ npm run release
 - bundle 布局（`index.md` + `zh.md`/`en.md` + `images/`）要与上游 `src/bundle.mjs` 保持一致：同一个文件夹既要能用 CLI 发，也要能用插件发。改这块前先读上游那个文件。
 - 插件是 `isDesktopOnly: true`，可以用 Electron 的 Canvas 和 `node:*`（esbuild 已 external）。
 - 只创建草稿，永远不要调用群发/发布接口。
+- 不要用 `fileManager.processFrontMatter` 写笔记：元数据缓存不是最新时它会在开头插入第二个 frontmatter 块，损坏笔记（已经发生过一次）。用 `vault.process` + `src/frontmatter.ts` 的 `upsertFrontmatter`，它是纯文本合并，有测试覆盖。
 - 设置页（`PublisherSettingTab`）的文案用**英文**，面向社区用户；运行时的 Notice 和报错目前是中文，面向写公众号的作者。改动时别把两者混在一起。

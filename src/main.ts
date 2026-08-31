@@ -15,6 +15,7 @@ import { extractImageSources, isRemoteSource, joinVaultPath, prepareArticle, Pre
 import { PreparedImage, prepareBodyImage, prepareCover } from './image';
 import { chooseCover, chooseTranslation, confirmDraft, CoverCandidate, DraftDecision, IMAGE_EXTENSIONS, PreviewModal } from './ui';
 import { BUNDLE_INDEX, conventionalCoverPaths, ResolvedBundle, resolveBundle } from './bundle';
+import { upsertFrontmatter } from './frontmatter';
 import { createDraft, deleteMaterial, forgetAccessToken, getAccessToken, uploadBodyImage, uploadCover } from './wechat-api';
 import { Credentials, loadCredentials, maskAppId } from './credentials';
 
@@ -318,10 +319,18 @@ export default class WechatPublisherPlugin extends Plugin {
     if (index) await this.writeFrontMatter(index, shared);
   }
 
+  /**
+   * `fileManager.processFrontMatter` finds the existing block through the metadata cache, and
+   * prepends a second one when that cache is stale — which corrupts the note. `vault.process` is a
+   * read-modify-write on the file's own text, so the merge sees exactly what is on disk.
+   */
   private async writeFrontMatter(file: TFile, additions: Record<string, string>): Promise<void> {
     if (!Object.keys(additions).length) return;
-    await this.app.fileManager.processFrontMatter(file, (frontmatter) => Object.assign(frontmatter, additions))
-      .catch((error) => console.error(`DGS WeChat Publisher: 写回 ${file.path} 的 frontmatter 失败`, error));
+    try {
+      await this.app.vault.process(file, (data) => upsertFrontmatter(data, additions));
+    } catch (error) {
+      console.error(`DGS WeChat Publisher: 写回 ${file.path} 的 frontmatter 失败`, error);
+    }
   }
 }
 
