@@ -1,0 +1,128 @@
+.dgs-wechat-preview-modal {
+  width: min(760px, 92vw);
+  height: min(900px, 88vh);
+}
+
+.dgs-wechat-preview-modal .modal-content,
+.dgs-wechat-preview-modal iframe {
+  width: 100%;
+  height: 100%;
+}
+
+.dgs-wechat-preview-modal iframe {
+  border: 0;
+  border-radius: 8px;
+  background: white;
+}
+
+/* Draft confirmation: a label column beside the values it names. */
+.dgs-wechat-summary {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 12px 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.dgs-wechat-summary-label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.dgs-wechat-summary-value {
+  min-width: 0;
+  font-size: var(--font-ui-small);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.dgs-wechat-summary-title {
+  font-weight: var(--font-semibold);
+}
+
+.dgs-wechat-summary-input {
+  width: 100%;
+  resize: vertical;
+}
+
+textarea.dgs-wechat-summary-input {
+  min-height: 4.5em;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.dgs-wechat-summary-input + .dgs-wechat-summary-path {
+  margin-top: 4px;
+  text-align: right;
+}
+
+.dgs-wechat-summary-empty {
+  color: var(--text-muted);
+}
+
+.dgs-wechat-summary-cover {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* The thumbnail is taller than a line of text; pull it back so the label still lines up. */
+  margin-top: -6px;
+}
+
+.dgs-wechat-summary-cover img {
+  width: 108px;
+  height: 60px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--background-modifier-border);
+}
+
+.dgs-wechat-summary-path {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  overflow-wrap: anywhere;
+}
+
+.dgs-wechat-summary-note {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+/* Cover picker: the thumbnail is the point, so give each row room for one. */
+.dgs-wechat-cover-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dgs-wechat-cover-suggestion .dgs-wechat-cover-thumb {
+  width: 72px;
+  height: 40px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--background-modifier-border);
+}
+
+.dgs-wechat-cover-thumb.is-missing {
+  visibility: hidden;
+}
+
+.dgs-wechat-cover-text {
+  min-width: 0;
+}
+
+.dgs-wechat-cover-name,
+.dgs-wechat-cover-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dgs-wechat-cover-meta {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}

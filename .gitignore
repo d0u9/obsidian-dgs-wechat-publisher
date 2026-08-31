@@ -26,3 +26,6 @@ data.json
 *.iml
 .DS_Store
 Thumbs.db
+
+# Test build cache
+node_modules/.test-build/
