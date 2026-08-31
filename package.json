@@ -11,7 +11,7 @@
     "release": "npm run build && npm run deploy"
   },
   "dependencies": {
-    "dgs-wechat-publisher": "github:d0u9/dgs-wechat-publisher#f211288"
+    "dgs-wechat-publisher": "github:d0u9/dgs-wechat-publisher#7d806e4"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
