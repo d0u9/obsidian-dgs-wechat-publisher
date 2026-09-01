@@ -127,7 +127,35 @@ bundle 里就是那个译本（`zh.md` / `en.md`），`cover` 也一样。封面
 
 ---
 
-## 6. 代码与文案约定
+## 6. 内容与图片处理
+
+### 6.1 `normalizePath` 不解析 `./` 和 `../`
+
+它只合并斜杠、去掉首尾斜杠，**`.` 和 `..` 段原样留着**。直接拿去查找会找不到文件——`cover: ./images/01.jpg` 曾经因此完全不可用，正文图同理。
+
+用 [src/article.ts](src/article.ts) 的 `joinVaultPath()` / `imagePathCandidates()`：先按笔记所在文件夹解析，再按 Vault 根，`/` 开头直接按根。
+
+### 6.2 改写 wiki 图片语法要跳过代码
+
+`![[photo.jpg]]` → 标准 Markdown 的改写，必须跳过**围栏代码块、行内代码、以及开头的 frontmatter**。否则写教程时代码里的示例会被真的改写，还会被当成待上传的图片。逐行扫描的实现在 `rewriteWikiImageEmbeds()`，有测试覆盖。
+
+### 6.3 能原样上传就不要重编码
+
+正文图里 JPEG/PNG 只要 ≤ 1 MB 就**原样上传**——重编码只会掉画质，PNG 还会丢透明通道。超限才缩放（≤1920 宽）并转码；PNG 优先仍转 PNG，实在超限才铺白底转 JPEG。
+
+封面是唯一必须重编码的：微信要 900×500、≤ 64 KB，原始构图本来就保不住。
+
+格式判断用 magic bytes（`sniffImageKind()`），**不要信文件扩展名**。
+
+### 6.4 替换 `<img src>` 要当心
+
+提取用正则、替换用字符串字面量的组合曾经静默失效。替换时必须：**转义正则元字符**（路径里有 `+` `(` `.` 很常见）、**单双引号都认**、且只动 `src` 不动 `alt`。见 `replaceImageSource()`。
+
+### 6.5 回写 frontmatter 只在草稿创建成功之后
+
+失败时不要留下半吊子的 frontmatter；预览模式不写任何东西（没有真的发布）。回写失败只记日志，不能影响已经建好的草稿。
+
+## 7. 代码与文案约定
 
 - 排版层来自 pin 住的 `dgs-wechat-publisher`（`github:d0u9/dgs-wechat-publisher#<commit>`）。它只负责 Markdown→微信 HTML，不碰文件、凭证和 HTTP。**要改排版就改上游再更新 pin**，不要在插件里后处理 HTML。
 - bundle 布局（`index.md` + `zh.md`/`en.md` + `images/`）要与上游 `src/bundle.mjs` 一致：同一个文件夹既要能用 CLI 发，也要能用插件发。改这块前先读那个文件。
@@ -137,7 +165,7 @@ bundle 里就是那个译本（`zh.md` / `en.md`），`cover` 也一样。封面
 
 ---
 
-## 7. 测试
+## 8. 测试
 
 - `src/*.ts` 通过 [tests/helpers/load-src.mjs](tests/helpers/load-src.mjs) 现场用 esbuild 编译、把 `obsidian` 换成桩模块来测。**不要为了可测性把代码拆成"无 obsidian 依赖"的文件**——桩已经够用。
 - 桩里的类挂在 `globalThis.__obsidian` 上，测试构造假 Vault 时要用它们，否则 `instanceof` 对不上。
@@ -146,9 +174,9 @@ bundle 里就是那个译本（`zh.md` / `en.md`），`cover` 也一样。封面
 
 ---
 
-## 8. 部署与发版
+## 9. 部署与发版
 
-### 8.1 部署到 Vault
+### 9.1 部署到 Vault
 
 ```bash
 npm run release
@@ -166,7 +194,7 @@ npm run release
 - 安装文件夹仍叫 `obsidian-dgs-wechat-publisher`，和插件 id 不同。Obsidian 按文件夹加载，两者可以不同——**不要"顺手"改名**，那只会把 `data.json` 挪来挪去
 - 部署后必须在 Obsidian 里 `Cmd+P → Reload app without saving`。**没重载就等于还在跑旧代码**——排查"改了没效果"时先确认这一步
 
-### 8.2 发版
+### 9.2 发版
 
 版本号写在 `manifest.json`、`package.json`、`versions.json`（外加 lockfile 两处），四处必须一致。然后打一个**与 manifest 逐字相同、不带 `v` 前缀**的标签：
 
